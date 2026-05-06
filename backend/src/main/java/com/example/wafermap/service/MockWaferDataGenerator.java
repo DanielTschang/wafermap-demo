@@ -13,7 +13,7 @@ public class MockWaferDataGenerator {
 
     private static final float WAFER_RADIUS = 150f;  // mm
     private static final float DIE_SIZE     = 14f;   // mm
-    private static final int   GRID_HALF    = 10;    // ±10 → 20×20 grid
+    private static final int   GRID_HALF    = 10;    // ±10 → 21×21 iteration space, ~333 valid dies
 
     public byte[] generate(int requestedPoints) {
         List<float[]> dies = validDieCenters();
