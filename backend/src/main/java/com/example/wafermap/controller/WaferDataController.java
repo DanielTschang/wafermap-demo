@@ -20,8 +20,12 @@ public class WaferDataController {
 
     @GetMapping(value = "/wafer-data", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
     public ResponseEntity<byte[]> getWaferData(
-            @RequestParam(defaultValue = "500000") int points) {
-        byte[] data = generator.generate(points);
+            @RequestParam(defaultValue = "500000") int points,
+            @RequestParam(defaultValue = "25.8") float fieldSizeX,
+            @RequestParam(defaultValue = "32.5") float fieldSizeY,
+            @RequestParam(defaultValue = "0.0")  float fieldOffsetX,
+            @RequestParam(defaultValue = "6.101")  float fieldOffsetY) {
+        byte[] data = generator.generate(points, fieldSizeX, fieldSizeY, fieldOffsetX, fieldOffsetY);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(data);

@@ -12,11 +12,12 @@ import java.util.Random;
 public class MockWaferDataGenerator {
 
     private static final float WAFER_RADIUS = 150f;  // mm
-    private static final float DIE_SIZE     = 14f;   // mm
-    private static final int   GRID_HALF    = 10;    // ±10 → 21×21 iteration space, ~333 valid dies
+    private static final int   GRID_HALF    = 10;    // ±10 → 21×21 iteration space
 
-    public byte[] generate(int requestedPoints) {
-        List<float[]> dies = validDieCenters();
+    public byte[] generate(int requestedPoints,
+                           float fieldSizeX, float fieldSizeY,
+                           float fieldOffsetX, float fieldOffsetY) {
+        List<float[]> dies = validDieCenters(fieldSizeX, fieldSizeY, fieldOffsetX, fieldOffsetY);
         int pointsPerDie = Math.max(1, requestedPoints / dies.size());
         int totalPoints  = pointsPerDie * dies.size();
 
@@ -33,8 +34,8 @@ public class MockWaferDataGenerator {
 
             for (int i = 0; i < pointsPerDie; i++) {
                 // random position within die
-                float intraX = (rng.nextFloat() - 0.5f) * DIE_SIZE;
-                float intraY = (rng.nextFloat() - 0.5f) * DIE_SIZE;
+                float intraX = (rng.nextFloat() - 0.5f) * fieldSizeX;
+                float intraY = (rng.nextFloat() - 0.5f) * fieldSizeY;
                 // overlay = die bias + random noise (σ=3nm)
                 float ovlX = dieOvlX + (float) (rng.nextGaussian() * 3);
                 float ovlY = dieOvlY + (float) (rng.nextGaussian() * 3);
@@ -51,14 +52,17 @@ public class MockWaferDataGenerator {
         return buf.array();
     }
 
-    private List<float[]> validDieCenters() {
+    private List<float[]> validDieCenters(float fieldSizeX, float fieldSizeY,
+                                          float fieldOffsetX, float fieldOffsetY) {
+        // half-diagonal of a die: farthest corner from die center
+        float halfDiag = (float) Math.sqrt(fieldSizeX * fieldSizeX + fieldSizeY * fieldSizeY) / 2f;
         List<float[]> centers = new ArrayList<>();
         for (int ix = -GRID_HALF; ix <= GRID_HALF; ix++) {
             for (int iy = -GRID_HALF; iy <= GRID_HALF; iy++) {
-                float cx = ix * DIE_SIZE;
-                float cy = iy * DIE_SIZE;
-                // die is valid if its center fits inside the wafer circle
-                if (Math.sqrt(cx * cx + cy * cy) <= WAFER_RADIUS - DIE_SIZE / 2f) {
+                float cx = ix * fieldSizeX + fieldOffsetX;
+                float cy = iy * fieldSizeY + fieldOffsetY;
+                // die is valid if its farthest corner fits inside the wafer circle
+                if (Math.sqrt(cx * cx + cy * cy) <= WAFER_RADIUS - halfDiag) {
                     centers.add(new float[]{cx, cy});
                 }
             }

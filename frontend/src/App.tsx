@@ -1,18 +1,28 @@
 import './App.css'
 import { useState, useMemo } from 'react'
 import { useWaferData }                        from './hooks/useWaferData.ts'
+import type { FieldParams }                    from './hooks/useWaferData.ts'
 import { prepareWaferArrays, buildColorArray } from './utils/colormap.ts'
 import WaferMapView                            from './components/WaferMapView.tsx'
 import ColorBar                                from './components/ColorBar.tsx'
 import DieInfoPanel                            from './components/DieInfoPanel.tsx'
 import type { SelectedDie }                    from './components/DieInfoPanel.tsx'
+import FieldParamsPanel                        from './components/FieldParamsPanel.tsx'
+
+const DEFAULT_FIELD_PARAMS: FieldParams = {
+  fieldSizeX: 25.8,
+  fieldSizeY: 32.5,
+  fieldOffsetX: 0,
+  fieldOffsetY: 6.101,
+}
 
 export default function App() {
   const [colorMin, setColorMin]       = useState(0)
   const [colorMax, setColorMax]       = useState(50)
   const [selectedDie, setSelectedDie] = useState<SelectedDie | null>(null)
+  const [fieldParams, setFieldParams] = useState<FieldParams>(DEFAULT_FIELD_PARAMS)
 
-  const { data, loading, error } = useWaferData(500000)
+  const { data, loading, error } = useWaferData(500000, fieldParams)
 
   const waferArrays = useMemo(() => {
     if (!data) return null
@@ -38,6 +48,7 @@ export default function App() {
           arrowSources={waferArrays.arrowSources}
           arrowTargets={waferArrays.arrowTargets}
           data={data!}
+          fieldParams={fieldParams}
           onDieClick={setSelectedDie}
         />
       </div>
@@ -48,6 +59,7 @@ export default function App() {
           onMinChange={setColorMin}
           onMaxChange={setColorMax}
         />
+        <FieldParamsPanel params={fieldParams} onApply={setFieldParams} />
         <DieInfoPanel selectedDie={selectedDie} data={data!} />
       </div>
     </div>

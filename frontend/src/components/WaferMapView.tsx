@@ -1,11 +1,13 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import DeckGL from '@deck.gl/react'
 import { OrthographicView } from '@deck.gl/core'
 import { ScatterplotLayer, LineLayer, PolygonLayer } from '@deck.gl/layers'
 import type { PickingInfo } from '@deck.gl/core'
 import type { SelectedDie } from './DieInfoPanel.tsx'
+import type { FieldParams } from '../hooks/useWaferData.ts'
 
 const WAFER_RADIUS = 150
+const GRID_HALF    = 10
 const LOD_ZOOM_THRESHOLD = 5
 
 const WAFER_BOUNDARY = (() => {
@@ -31,6 +33,7 @@ interface WaferMapViewProps {
   arrowSources: Float32Array
   arrowTargets: Float32Array
   data: Float32Array
+  fieldParams: FieldParams
   onDieClick: (die: SelectedDie) => void
 }
 
@@ -41,6 +44,7 @@ export default function WaferMapView({
   arrowSources,
   arrowTargets,
   data,
+  fieldParams,
   onDieClick,
 }: WaferMapViewProps) {
   const [zoom, setZoom] = useState(INITIAL_VIEW_STATE.zoom)
@@ -53,6 +57,32 @@ export default function WaferMapView({
     const interY = data[i * 6 + 1]
     onDieClick({ interX, interY })
   }
+
+  const dieBoundaries = useMemo(() => {
+    const { fieldSizeX, fieldSizeY, fieldOffsetX, fieldOffsetY } = fieldParams
+    const halfDiag = Math.sqrt(fieldSizeX ** 2 + fieldSizeY ** 2) / 2
+    const threshold = WAFER_RADIUS - halfDiag
+    const hx = fieldSizeX / 2
+    const hy = fieldSizeY / 2
+    const rects: { polygon: number[][] }[] = []
+    for (let ix = -GRID_HALF; ix <= GRID_HALF; ix++) {
+      for (let iy = -GRID_HALF; iy <= GRID_HALF; iy++) {
+        const cx = ix * fieldSizeX + fieldOffsetX
+        const cy = iy * fieldSizeY + fieldOffsetY
+        if (Math.sqrt(cx * cx + cy * cy) <= threshold) {
+          rects.push({
+            polygon: [
+              [cx - hx, cy - hy],
+              [cx + hx, cy - hy],
+              [cx + hx, cy + hy],
+              [cx - hx, cy + hy],
+            ],
+          })
+        }
+      }
+    }
+    return rects
+  }, [fieldParams])
 
   const showArrows = zoom >= LOD_ZOOM_THRESHOLD
 
@@ -67,6 +97,18 @@ export default function WaferMapView({
       lineWidthUnits: 'pixels' as const,
       stroked: true,
       filled: true,
+    }),
+
+    new PolygonLayer({
+      id: 'die-boundaries',
+      data: dieBoundaries,
+      getPolygon: (d: { polygon: number[][] }) => d.polygon,
+      getFillColor: [0, 0, 0, 0] as [number, number, number, number],
+      getLineColor: [100, 100, 160, 160] as [number, number, number, number],
+      getLineWidth: 0.5,
+      lineWidthUnits: 'pixels' as const,
+      stroked: true,
+      filled: false,
     }),
 
     new ScatterplotLayer({
@@ -118,7 +160,7 @@ export default function WaferMapView({
       style={{ position: 'relative', width: '100%', height: '100%' }}
     >
       <div style={zoomBadgeStyle}>
-        zoom {zoom.toFixed(1)} {showArrows ? '· arrows on' : ''}
+        zoom {zoom.toFixed(1)} {showArrows ? '· arrows on' : ''} · {dieBoundaries.length} dies
       </div>
     </DeckGL>
   )
