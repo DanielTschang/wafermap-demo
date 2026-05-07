@@ -8,7 +8,14 @@ const GRADIENT = (() => {
   return `linear-gradient(to right, ${stops.join(', ')})`
 })()
 
-export default function ColorBar({ colorMin, colorMax, onMinChange, onMaxChange }) {
+interface ColorBarProps {
+  colorMin: number
+  colorMax: number
+  onMinChange: (v: number) => void
+  onMaxChange: (v: number) => void
+}
+
+export default function ColorBar({ colorMin, colorMax, onMinChange, onMaxChange }: ColorBarProps) {
   return (
     <div style={styles.container}>
       <div style={styles.label}>OVERLAY MAGNITUDE (nm)</div>
@@ -45,7 +52,7 @@ export default function ColorBar({ colorMin, colorMax, onMinChange, onMaxChange 
   )
 }
 
-const styles = {
+const styles: Record<string, React.CSSProperties> = {
   container: {
     background: '#1e1e36',
     borderRadius: 6,

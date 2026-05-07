@@ -1,6 +1,19 @@
 import { useMemo } from 'react'
 
-function computeDieStats(data, interX, interY) {
+export interface SelectedDie {
+  interX: number
+  interY: number
+}
+
+interface DieStats {
+  count: number
+  avgMag: number
+  maxMag: number
+  avgOvlX: number
+  avgOvlY: number
+}
+
+function computeDieStats(data: Float32Array, interX: number, interY: number): DieStats | null {
   let count = 0, sumMag = 0, maxMag = 0, sumOvlX = 0, sumOvlY = 0
   const n = data.length / 6
   for (let i = 0; i < n; i++) {
@@ -25,9 +38,14 @@ function computeDieStats(data, interX, interY) {
   }
 }
 
-export default function DieInfoPanel({ selectedDie, data }) {
+interface DieInfoPanelProps {
+  selectedDie: SelectedDie | null
+  data: Float32Array
+}
+
+export default function DieInfoPanel({ selectedDie, data }: DieInfoPanelProps) {
   const stats = useMemo(() => {
-    if (!selectedDie || !data) return null
+    if (!selectedDie) return null
     return computeDieStats(data, selectedDie.interX, selectedDie.interY)
   }, [selectedDie, data])
 
@@ -59,7 +77,7 @@ export default function DieInfoPanel({ selectedDie, data }) {
   )
 }
 
-function Row({ label, value }) {
+function Row({ label, value }: { label: string; value: string | number }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
       <span style={styles.rowLabel}>{label}</span>
@@ -68,7 +86,7 @@ function Row({ label, value }) {
   )
 }
 
-const styles = {
+const styles: Record<string, React.CSSProperties> = {
   container: {
     background: '#1e1e36',
     borderRadius: 6,

@@ -2,11 +2,12 @@ import { useState, useRef } from 'react'
 import DeckGL from '@deck.gl/react'
 import { OrthographicView } from '@deck.gl/core'
 import { ScatterplotLayer, LineLayer, PolygonLayer } from '@deck.gl/layers'
+import type { PickingInfo } from '@deck.gl/core'
+import type { SelectedDie } from './DieInfoPanel.tsx'
 
-const WAFER_RADIUS = 150  // mm
+const WAFER_RADIUS = 150
 const LOD_ZOOM_THRESHOLD = 5
 
-// Build a circle polygon for the wafer boundary
 const WAFER_BOUNDARY = (() => {
   const steps = 128
   const ring = Array.from({ length: steps }, (_, i) => {
@@ -17,26 +18,36 @@ const WAFER_BOUNDARY = (() => {
 })()
 
 const INITIAL_VIEW_STATE = {
-  target: [0, 0, 0],
+  target: [0, 0, 0] as [number, number, number],
   zoom: 1.7,
   minZoom: -2,
   maxZoom: 14,
 }
 
+interface WaferMapViewProps {
+  n: number
+  positions: Float32Array
+  colors: Uint8Array
+  arrowSources: Float32Array
+  arrowTargets: Float32Array
+  data: Float32Array
+  onDieClick: (die: SelectedDie) => void
+}
+
 export default function WaferMapView({
-  n,            // number of points
-  positions,    // Float32Array [x,y, x,y, ...]
-  colors,       // Uint8Array   [r,g,b,a, ...]
-  arrowSources, // Float32Array for LOD arrows
-  arrowTargets, // Float32Array for LOD arrows
-  data,         // raw Float32Array (for die lookup on click)
+  n,
+  positions,
+  colors,
+  arrowSources,
+  arrowTargets,
+  data,
   onDieClick,
-}) {
+}: WaferMapViewProps) {
   const [zoom, setZoom] = useState(INITIAL_VIEW_STATE.zoom)
   const viewStateRef = useRef(INITIAL_VIEW_STATE)
 
-  function handleClick(info) {
-    if (info.index == null || info.index < 0 || !data) return
+  function handleClick(info: PickingInfo): void {
+    if (info.index == null || info.index < 0) return
     const i = info.index
     const interX = data[i * 6]
     const interY = data[i * 6 + 1]
@@ -49,22 +60,22 @@ export default function WaferMapView({
     new PolygonLayer({
       id: 'wafer-boundary',
       data: WAFER_BOUNDARY,
-      getPolygon: d => d.contour,
-      getFillColor: [20, 20, 40, 200],
-      getLineColor: [80, 120, 200, 180],
+      getPolygon: (d: { contour: number[][] }) => d.contour,
+      getFillColor: [20, 20, 40, 200] as [number, number, number, number],
+      getLineColor: [80, 120, 200, 180] as [number, number, number, number],
       getLineWidth: 1,
-      lineWidthUnits: 'pixels',
+      lineWidthUnits: 'pixels' as const,
       stroked: true,
       filled: true,
     }),
 
-    positions && new ScatterplotLayer({
+    new ScatterplotLayer({
       id: 'points',
       data: {
         length: n,
         attributes: {
           getPosition: { value: positions, size: 2 },
-          getFillColor: { value: colors,    size: 4 },
+          getFillColor: { value: colors, size: 4 },
         },
       },
       getRadius: 0.08,
@@ -74,20 +85,24 @@ export default function WaferMapView({
       onClick: handleClick,
     }),
 
-    showArrows && arrowSources && new LineLayer({
-      id: 'arrows',
-      data: {
-        length: n,
-        attributes: {
-          getSourcePosition: { value: arrowSources, size: 2 },
-          getTargetPosition: { value: arrowTargets, size: 2 },
-        },
-      },
-      getColor: [255, 255, 255, 160],
-      getWidth: 1,
-      widthUnits: 'pixels',
-    }),
-  ].filter(Boolean)
+    ...(showArrows
+      ? [
+          new LineLayer({
+            id: 'arrows',
+            data: {
+              length: n,
+              attributes: {
+                getSourcePosition: { value: arrowSources, size: 2 },
+                getTargetPosition: { value: arrowTargets, size: 2 },
+              },
+            },
+            getColor: [255, 255, 255, 160] as [number, number, number, number],
+            getWidth: 1,
+            widthUnits: 'pixels' as const,
+          }),
+        ]
+      : []),
+  ]
 
   return (
     <DeckGL
@@ -96,8 +111,9 @@ export default function WaferMapView({
       controller={true}
       layers={layers}
       onViewStateChange={({ viewState }) => {
-        viewStateRef.current = viewState
-        setZoom(viewState.zoom)
+        const vs = viewState as { zoom: number }
+        viewStateRef.current = { ...INITIAL_VIEW_STATE, ...vs }
+        setZoom(vs.zoom)
       }}
       style={{ position: 'relative', width: '100%', height: '100%' }}
     >
@@ -108,7 +124,7 @@ export default function WaferMapView({
   )
 }
 
-const zoomBadgeStyle = {
+const zoomBadgeStyle: React.CSSProperties = {
   position: 'absolute',
   bottom: 8,
   left: 8,

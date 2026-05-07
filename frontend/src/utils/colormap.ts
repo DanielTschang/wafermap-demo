@@ -1,20 +1,21 @@
 import { interpolateViridis } from 'd3-scale-chromatic'
 
-const ARROW_LENGTH_MM = 0.5  // fixed world-space arrow length
+const ARROW_LENGTH_MM = 0.5
 
-function parseViridisColor(rgbStr) {
-  const [r, g, b] = rgbStr.match(/\d+/g).map(Number)
+export interface WaferArrays {
+  n: number
+  positions: Float32Array
+  arrowSources: Float32Array
+  arrowTargets: Float32Array
+}
+
+function parseViridisColor(rgbStr: string): [number, number, number, number] {
+  const matches = rgbStr.match(/\d+/g)!
+  const [r, g, b] = matches.map(Number)
   return [r, g, b, 220]
 }
 
-/**
- * Pre-compute geometry arrays from raw Float32Array (one-time, on data load).
- * Returns { n, positions, arrowSources, arrowTargets }
- *   positions: Float32Array [x, y, x, y, ...] — absolute point positions
- *   arrowSources: Float32Array [x, y, ...] — arrow start positions (same as positions)
- *   arrowTargets: Float32Array [x, y, ...] — arrow end positions (normalized direction * ARROW_LENGTH_MM)
- */
-export function prepareWaferArrays(data) {
+export function prepareWaferArrays(data: Float32Array): WaferArrays {
   const n = data.length / 6
   const positions    = new Float32Array(n * 2)
   const arrowSources = new Float32Array(n * 2)
@@ -46,11 +47,7 @@ export function prepareWaferArrays(data) {
   return { n, positions, arrowSources, arrowTargets }
 }
 
-/**
- * Build RGBA Uint8Array from overlay magnitudes.
- * Recomputed whenever colorMin or colorMax changes.
- */
-export function buildColorArray(data, colorMin, colorMax) {
+export function buildColorArray(data: Float32Array, colorMin: number, colorMax: number): Uint8Array {
   const n = data.length / 6
   const colors = new Uint8Array(n * 4)
   const range = colorMax - colorMin || 1
