@@ -1,3 +1,53 @@
+import './App.css'
+import { useState, useMemo } from 'react'
+import { useWaferData }              from './hooks/useWaferData.js'
+import { prepareWaferArrays, buildColorArray } from './utils/colormap.js'
+import WaferMapView from './components/WaferMapView.jsx'
+import ColorBar     from './components/ColorBar.jsx'
+import DieInfoPanel from './components/DieInfoPanel.jsx'
+
 export default function App() {
-  return <div>WaferMap Loading...</div>
+  const [colorMin, setColorMin] = useState(0)
+  const [colorMax, setColorMax] = useState(50)
+  const [selectedDie, setSelectedDie] = useState(null)
+
+  const { data, loading, error } = useWaferData(500000)
+
+  const waferArrays = useMemo(() => {
+    if (!data) return null
+    return prepareWaferArrays(data)
+  }, [data])
+
+  const colors = useMemo(() => {
+    if (!data) return null
+    return buildColorArray(data, colorMin, colorMax)
+  }, [data, colorMin, colorMax])
+
+  if (loading) return <div className="status">Loading wafer data…</div>
+  if (error)   return <div className="status error">Error: {error}</div>
+
+  return (
+    <div className="layout">
+      <div className="map-area">
+        <WaferMapView
+          n={waferArrays.n}
+          positions={waferArrays.positions}
+          colors={colors}
+          arrowSources={waferArrays.arrowSources}
+          arrowTargets={waferArrays.arrowTargets}
+          data={data}
+          onDieClick={setSelectedDie}
+        />
+      </div>
+      <div className="sidebar">
+        <ColorBar
+          colorMin={colorMin}
+          colorMax={colorMax}
+          onMinChange={setColorMin}
+          onMaxChange={setColorMax}
+        />
+        <DieInfoPanel selectedDie={selectedDie} data={data} />
+      </div>
+    </div>
+  )
 }

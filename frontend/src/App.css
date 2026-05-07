@@ -15,3 +15,37 @@ body {
 #root {
   height: 100vh;
 }
+
+.layout {
+  display: flex;
+  height: 100vh;
+}
+
+.map-area {
+  flex: 1;
+  position: relative;
+  background: #0a0a18;
+}
+
+.sidebar {
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 8px;
+  background: #13132a;
+  overflow-y: auto;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  font-size: 14px;
+  color: #888;
+}
+
+.status.error {
+  color: #ff6b6b;
+}
