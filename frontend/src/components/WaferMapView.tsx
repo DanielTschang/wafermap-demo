@@ -1,10 +1,11 @@
 import { useState, useRef, useMemo } from 'react'
 import DeckGL from '@deck.gl/react'
 import { OrthographicView } from '@deck.gl/core'
-import { ScatterplotLayer, LineLayer, PolygonLayer } from '@deck.gl/layers'
+import { ScatterplotLayer, SolidPolygonLayer, PolygonLayer } from '@deck.gl/layers'
 import type { PickingInfo } from '@deck.gl/core'
 import type { SelectedDie } from './DieInfoPanel.tsx'
 import type { FieldParams } from '../hooks/useWaferData.ts'
+import type { ArrowPolygon } from '../utils/colormap.ts'
 
 const WAFER_RADIUS = 150
 const GRID_HALF    = 10
@@ -30,8 +31,7 @@ interface WaferMapViewProps {
   n: number
   positions: Float32Array
   colors: Uint8Array
-  arrowSources: Float32Array
-  arrowTargets: Float32Array
+  arrowPolygons: ArrowPolygon[]
   data: Float32Array
   fieldParams: FieldParams
   onDieClick: (die: SelectedDie) => void
@@ -41,8 +41,7 @@ export default function WaferMapView({
   n,
   positions,
   colors,
-  arrowSources,
-  arrowTargets,
+  arrowPolygons,
   data,
   fieldParams,
   onDieClick,
@@ -129,18 +128,13 @@ export default function WaferMapView({
 
     ...(showArrows
       ? [
-          new LineLayer({
+          new SolidPolygonLayer({
             id: 'arrows',
-            data: {
-              length: n,
-              attributes: {
-                getSourcePosition: { value: arrowSources, size: 2 },
-                getTargetPosition: { value: arrowTargets, size: 2 },
-              },
-            },
-            getColor: [255, 255, 255, 160] as [number, number, number, number],
-            getWidth: 1,
-            widthUnits: 'pixels' as const,
+            data: arrowPolygons,
+            getPolygon: (d: ArrowPolygon) => d.polygon,
+            getFillColor: (d: ArrowPolygon) => d.color,
+            filled: true,
+            pickable: false,
           }),
         ]
       : []),
