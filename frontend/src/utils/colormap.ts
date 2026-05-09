@@ -5,8 +5,16 @@ const SHAFT_WIDTH_MM         = 0.03
 const HEAD_WIDTH_MM          = 0.09
 const HEAD_LENGTH_RATIO      = 0.25
 
+function rotateVertex(
+  px: number, py: number,
+  x: number, y: number,
+  dx: number, dy: number,
+): [number, number] {
+  return [x + px * dy + py * dx, y - px * dx + py * dy]
+}
+
 export interface ArrowPolygon {
-  polygon: number[][]
+  polygon: [number, number][]
   color: [number, number, number, number]
 }
 
@@ -89,21 +97,14 @@ export function buildArrowPolygons(
     const shaftLen   = displayLen * (1 - HEAD_LENGTH_RATIO)
     const headLen    = displayLen * HEAD_LENGTH_RATIO
 
-    // Rotate canonical (px, py) to world coords.
-    // Canonical +Y maps to (dx, dy). Result: [wx, wy]
-    const r = (px: number, py: number): [number, number] => [
-      x + px * dy + py * dx,
-      y - px * dx + py * dy,
-    ]
-
-    const polygon: number[][] = [
-      r(-sw, 0),
-      r(-sw, shaftLen),
-      r(-hw, shaftLen),
-      r(  0, shaftLen + headLen),
-      r( hw, shaftLen),
-      r( sw, shaftLen),
-      r( sw, 0),
+    const polygon: [number, number][] = [
+      rotateVertex(-sw, 0,              x, y, dx, dy),
+      rotateVertex(-sw, shaftLen,       x, y, dx, dy),
+      rotateVertex(-hw, shaftLen,       x, y, dx, dy),
+      rotateVertex(  0, shaftLen + headLen, x, y, dx, dy),
+      rotateVertex( hw, shaftLen,       x, y, dx, dy),
+      rotateVertex( sw, shaftLen,       x, y, dx, dy),
+      rotateVertex( sw, 0,              x, y, dx, dy),
     ]
 
     const t = Math.max(0, Math.min(1, (mag - colorMin) / range))
