@@ -27,7 +27,7 @@ const INITIAL_VIEW_STATE = {
   maxZoom: 14,
 }
 
-const NICE_MM_STEPS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500]
+const NICE_MM_STEPS = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500]
 
 function niceScaleBar(zoom: number): { widthPx: number; labelMm: number } {
   const pixelsPerMm = Math.pow(2, zoom)
