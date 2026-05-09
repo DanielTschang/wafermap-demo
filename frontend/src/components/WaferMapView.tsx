@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useCallback } from 'react'
 import DeckGL from '@deck.gl/react'
 import { OrthographicView } from '@deck.gl/core'
 import { ScatterplotLayer, SolidPolygonLayer, PolygonLayer } from '@deck.gl/layers'
@@ -58,13 +58,13 @@ export default function WaferMapView({
   const [zoom, setZoom] = useState(INITIAL_VIEW_STATE.zoom)
   const viewStateRef = useRef(INITIAL_VIEW_STATE)
 
-  function handleClick(info: PickingInfo): void {
+  const handleClick = useCallback((info: PickingInfo): void => {
     if (info.index == null || info.index < 0) return
     const i = info.index
     const interX = data[i * 6]
     const interY = data[i * 6 + 1]
     onDieClick({ interX, interY })
-  }
+  }, [data, onDieClick])
 
   const dieBoundaries = useMemo(() => {
     const { fieldSizeX, fieldSizeY, fieldOffsetX, fieldOffsetY } = fieldParams
@@ -94,7 +94,7 @@ export default function WaferMapView({
 
   const showArrows = zoom >= LOD_ZOOM_THRESHOLD
 
-  const layers = [
+  const layers = useMemo(() => [
     new PolygonLayer({
       id: 'wafer-boundary',
       data: WAFER_BOUNDARY,
@@ -147,7 +147,7 @@ export default function WaferMapView({
           }),
         ]
       : []),
-  ]
+  ], [n, positions, colors, arrowPolygons, dieBoundaries, showArrows, handleClick])
 
   return (
     <DeckGL
