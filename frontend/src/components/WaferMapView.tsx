@@ -27,6 +27,15 @@ const INITIAL_VIEW_STATE = {
   maxZoom: 14,
 }
 
+const NICE_MM_STEPS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500]
+
+function niceScaleBar(zoom: number): { widthPx: number; labelMm: number } {
+  const pixelsPerMm = Math.pow(2, zoom)
+  const rawMm = 100 / pixelsPerMm
+  const niceMm = NICE_MM_STEPS.find(s => s >= rawMm) ?? NICE_MM_STEPS[NICE_MM_STEPS.length - 1]
+  return { widthPx: Math.round(niceMm * pixelsPerMm), labelMm: niceMm }
+}
+
 interface WaferMapViewProps {
   n: number
   positions: Float32Array
@@ -156,8 +165,46 @@ export default function WaferMapView({
       <div style={zoomBadgeStyle}>
         zoom {zoom.toFixed(1)} {showArrows ? '· arrows on' : ''} · {dieBoundaries.length} dies
       </div>
+      <ScaleBar zoom={zoom} />
     </DeckGL>
   )
+}
+
+function ScaleBar({ zoom }: { zoom: number }) {
+  const { widthPx, labelMm } = niceScaleBar(zoom)
+  return (
+    <div style={scaleBarContainerStyle}>
+      <div style={{ ...scaleBarLineStyle, width: widthPx }} />
+      <div style={scaleBarLabelStyle}>
+        {labelMm >= 1 ? `${labelMm} mm` : `${labelMm * 1000} μm`}
+      </div>
+    </div>
+  )
+}
+
+const scaleBarContainerStyle: React.CSSProperties = {
+  position: 'absolute',
+  bottom: 24,
+  left: 16,
+  pointerEvents: 'none',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+}
+
+const scaleBarLineStyle: React.CSSProperties = {
+  height: 8,
+  borderLeft: '2px solid #aaa',
+  borderRight: '2px solid #aaa',
+  borderBottom: '2px solid #aaa',
+  boxSizing: 'border-box',
+}
+
+const scaleBarLabelStyle: React.CSSProperties = {
+  fontSize: 10,
+  color: '#aaa',
+  marginTop: 2,
+  whiteSpace: 'nowrap',
 }
 
 const zoomBadgeStyle: React.CSSProperties = {
