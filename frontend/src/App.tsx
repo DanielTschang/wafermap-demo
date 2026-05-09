@@ -1,13 +1,13 @@
 import './App.css'
 import { useState, useMemo } from 'react'
-import { useWaferData }                        from './hooks/useWaferData.ts'
-import type { FieldParams }                    from './hooks/useWaferData.ts'
-import { prepareWaferArrays, buildColorArray } from './utils/colormap.ts'
-import WaferMapView                            from './components/WaferMapView.tsx'
-import ColorBar                                from './components/ColorBar.tsx'
-import DieInfoPanel                            from './components/DieInfoPanel.tsx'
-import type { SelectedDie }                    from './components/DieInfoPanel.tsx'
-import FieldParamsPanel                        from './components/FieldParamsPanel.tsx'
+import { useWaferData }                                         from './hooks/useWaferData.ts'
+import type { FieldParams }                                     from './hooks/useWaferData.ts'
+import { prepareWaferArrays, buildColorArray, buildArrowPolygons } from './utils/colormap.ts'
+import WaferMapView                                             from './components/WaferMapView.tsx'
+import ColorBar                                                 from './components/ColorBar.tsx'
+import DieInfoPanel                                             from './components/DieInfoPanel.tsx'
+import type { SelectedDie }                                     from './components/DieInfoPanel.tsx'
+import FieldParamsPanel                                         from './components/FieldParamsPanel.tsx'
 
 const DEFAULT_FIELD_PARAMS: FieldParams = {
   fieldSizeX: 25.8,
@@ -34,9 +34,14 @@ export default function App() {
     return buildColorArray(data, colorMin, colorMax)
   }, [data, colorMin, colorMax])
 
+  const arrowPolygons = useMemo(() => {
+    if (!data) return null
+    return buildArrowPolygons(data, colorMin, colorMax)
+  }, [data, colorMin, colorMax])
+
   if (loading) return <div className="status">Loading wafer data…</div>
   if (error)   return <div className="status error">Error: {error}</div>
-  if (!waferArrays || !colors) return null
+  if (!waferArrays || !colors || !arrowPolygons) return null
 
   return (
     <div className="layout">
@@ -45,8 +50,7 @@ export default function App() {
           n={waferArrays.n}
           positions={waferArrays.positions}
           colors={colors}
-          arrowSources={waferArrays.arrowSources}
-          arrowTargets={waferArrays.arrowTargets}
+          arrowPolygons={arrowPolygons}
           data={data!}
           fieldParams={fieldParams}
           onDieClick={setSelectedDie}
