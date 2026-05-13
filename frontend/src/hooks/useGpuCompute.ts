@@ -82,6 +82,10 @@ export function useGpuCompute(
       col.destroy();
       arrow.destroy();
       rawGpuBuf.destroy();
+      posRef.current = null;
+      colRef.current = null;
+      arrowRef.current = null;
+      rawGpuBufRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
