@@ -40,7 +40,7 @@ export function createColorCompute(device: Device, n: number): ColorCompute {
   const colGpuBuf = (colorBuffer as unknown as {handle: GPUBuffer}).handle;
 
   const uniformBuffer = gpu.createBuffer({
-    size: 8,  // 2 × f32
+    size: 16,  // struct {f32, f32} rounds to 16 bytes in WGSL uniform buffers
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 

@@ -141,7 +141,7 @@ export function createArrowCompute(device: Device, n: number): ArrowCompute {
   ]));
 
   const colorUniBuffer = gpu.createBuffer({
-    size: 8,
+    size: 16,  // struct {f32, f32} rounds to 16 bytes in WGSL uniform buffers
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
