@@ -1,13 +1,13 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import {luma} from '@luma.gl/core';
-import {WebGPUDevice} from '@luma.gl/webgpu';
+import {webgpuAdapter} from '@luma.gl/webgpu';
 import {setDevice} from './gpu/webgpuDevice';
 import App from './App';
 import './index.css';
 
 async function bootstrap(): Promise<void> {
-  luma.registerAdapters([WebGPUDevice as any]);
+  luma.registerAdapters([webgpuAdapter]);
   const device = await luma.createDevice({type: 'webgpu'});
   setDevice(device);
 
