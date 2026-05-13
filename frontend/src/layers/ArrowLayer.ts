@@ -71,11 +71,13 @@ export class ArrowLayer extends Layer<ArrowLayerProps> {
     // Bind the uniform buffer by the WGSL variable name
     model.setBindings({uniforms: uniformBuf});
 
-    this.setState({model, uniformBuf});
+    const vpScratch = new Float32Array(16);
+    this.setState({model, uniformBuf, vpScratch});
   }
 
   updateState({props, oldProps}: UpdateParameters<this>): void {
-    const {model} = this.state as {model: Model; uniformBuf: Buffer};
+    const {model} = this.state as {model: Model | undefined; uniformBuf: Buffer};
+    if (!model) return;
     const buffersChanged =
       props.vertexBuffer !== oldProps.vertexBuffer ||
       props.colorBuffer  !== oldProps.colorBuffer;
@@ -88,17 +90,18 @@ export class ArrowLayer extends Layer<ArrowLayerProps> {
   }
 
   draw({renderPass}: {renderPass: RenderPass}): void {
-    const {model, uniformBuf} = this.state as {model: Model; uniformBuf: Buffer};
+    const {model, uniformBuf, vpScratch} = this.state as {model: Model; uniformBuf: Buffer; vpScratch: Float32Array};
     const {vertexBuffer, colorBuffer, vertexCount} = this.props;
     if (!vertexBuffer || !colorBuffer || vertexCount <= 0) return;
 
     // Upload the current view-projection matrix into the uniform buffer
     const vpMatrix = this.context.viewport.viewProjectionMatrix as number[];
     const {device} = this.context;
+    vpScratch.set(vpMatrix);
     (device as any).handle.queue.writeBuffer(
       (uniformBuf as any).handle,
       0,
-      new Float32Array(vpMatrix),
+      vpScratch,
     );
 
     model.setVertexCount(vertexCount);
