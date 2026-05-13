@@ -88,7 +88,7 @@ export default function WaferMapView({n, gpuBuffers, data, fieldParams, onDieCli
     new SolidPolygonLayer({
       id: 'wafer-fill',
       data: WAFER_FILLED,
-      getPolygon: (d: {polygon: number[][]}) => d.polygon,
+      getPolygon: (d: {polygon: number[][]}) => d.polygon as any,
       getFillColor: [20, 20, 40, 200] as [number, number, number, number],
       filled: true,
     }),
@@ -96,7 +96,7 @@ export default function WaferMapView({n, gpuBuffers, data, fieldParams, onDieCli
     new PathLayer({
       id: 'wafer-outline',
       data: WAFER_PATH,
-      getPath: (d: {path: number[][]}) => d.path,
+      getPath: (d: {path: number[][]}) => d.path as any,
       getColor: [80, 120, 200, 180] as [number, number, number, number],
       getWidth: 1,
       widthUnits: 'pixels' as const,
@@ -105,8 +105,8 @@ export default function WaferMapView({n, gpuBuffers, data, fieldParams, onDieCli
     new LineLayer({
       id: 'die-boundaries',
       data: dieBoundaries,
-      getSourcePosition: (d: {sourcePosition: number[]}) => d.sourcePosition,
-      getTargetPosition: (d: {targetPosition: number[]}) => d.targetPosition,
+      getSourcePosition: (d: {sourcePosition: number[]}) => d.sourcePosition as [number, number],
+      getTargetPosition: (d: {targetPosition: number[]}) => d.targetPosition as [number, number],
       getColor: [100, 100, 160, 160] as [number, number, number, number],
       getWidth: 0.5,
       widthUnits: 'pixels' as const,

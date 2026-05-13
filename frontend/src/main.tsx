@@ -7,7 +7,7 @@ import App from './App';
 import './index.css';
 
 async function bootstrap(): Promise<void> {
-  luma.registerAdapters([WebGPUDevice]);
+  luma.registerAdapters([WebGPUDevice as any]);
   const device = await luma.createDevice({type: 'webgpu'});
   setDevice(device);
 
