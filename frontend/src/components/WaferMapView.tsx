@@ -1,24 +1,37 @@
-import { useState, useRef, useMemo, useCallback } from 'react'
+import {useState, useMemo, useCallback} from 'react'
 import DeckGL from '@deck.gl/react'
-import { OrthographicView } from '@deck.gl/core'
-import { ScatterplotLayer, SolidPolygonLayer, PolygonLayer } from '@deck.gl/layers'
-import type { PickingInfo } from '@deck.gl/core'
-import type { SelectedDie } from './DieInfoPanel.tsx'
-import type { FieldParams } from '../hooks/useWaferData.ts'
-import type { ArrowPolygon } from '../utils/colormap.ts'
+import {OrthographicView} from '@deck.gl/core'
+import {ScatterplotLayer, SolidPolygonLayer, PathLayer, LineLayer} from '@deck.gl/layers'
+import type {PickingInfo} from '@deck.gl/core'
+import type {SelectedDie} from './DieInfoPanel.tsx'
+import type {FieldParams} from '../hooks/useWaferData.ts'
+import type {GpuBuffers} from '../hooks/useGpuCompute.ts'
+import {ArrowLayer} from '../layers/ArrowLayer.ts'
+import {getDevice} from '../gpu/webgpuDevice.ts'
 
 const WAFER_RADIUS = 150
 const GRID_HALF    = 10
 const LOD_ZOOM_THRESHOLD = 5
 
-const WAFER_BOUNDARY = (() => {
+const WAFER_RING = (() => {
   const steps = 128
-  const ring = Array.from({ length: steps }, (_, i) => {
+  return Array.from({length: steps + 1}, (_, i) => {
     const angle = (i / steps) * 2 * Math.PI
     return [Math.cos(angle) * WAFER_RADIUS, Math.sin(angle) * WAFER_RADIUS]
   })
-  return [{ contour: ring }]
 })()
+
+const WAFER_FILLED = [{polygon: WAFER_RING.slice(0, -1)}]
+const WAFER_PATH   = [{path: WAFER_RING}]
+
+const NICE_MM_STEPS = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500]
+
+function niceScaleBar(zoom: number): {widthPx: number; labelMm: number} {
+  const pixelsPerMm = Math.pow(2, zoom)
+  const rawMm = 100 / pixelsPerMm
+  const niceMm = NICE_MM_STEPS.find(s => s >= rawMm) ?? NICE_MM_STEPS[NICE_MM_STEPS.length - 1]
+  return {widthPx: Math.round(niceMm * pixelsPerMm), labelMm: niceMm}
+}
 
 const INITIAL_VIEW_STATE = {
   target: [0, 0, 0] as [number, number, number],
@@ -27,96 +40,76 @@ const INITIAL_VIEW_STATE = {
   maxZoom: 14,
 }
 
-const NICE_MM_STEPS = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500]
-
-function niceScaleBar(zoom: number): { widthPx: number; labelMm: number } {
-  const pixelsPerMm = Math.pow(2, zoom)
-  const rawMm = 100 / pixelsPerMm
-  const niceMm = NICE_MM_STEPS.find(s => s >= rawMm) ?? NICE_MM_STEPS[NICE_MM_STEPS.length - 1]
-  return { widthPx: Math.round(niceMm * pixelsPerMm), labelMm: niceMm }
-}
-
 interface WaferMapViewProps {
   n: number
-  positions: Float32Array
-  colors: Uint8Array
-  arrowPolygons: ArrowPolygon[]
+  gpuBuffers: GpuBuffers
   data: Float32Array
   fieldParams: FieldParams
   onDieClick: (die: SelectedDie) => void
 }
 
-export default function WaferMapView({
-  n,
-  positions,
-  colors,
-  arrowPolygons,
-  data,
-  fieldParams,
-  onDieClick,
-}: WaferMapViewProps) {
+export default function WaferMapView({n, gpuBuffers, data, fieldParams, onDieClick}: WaferMapViewProps) {
   const [zoom, setZoom] = useState(INITIAL_VIEW_STATE.zoom)
-  const viewStateRef = useRef(INITIAL_VIEW_STATE)
 
   const handleClick = useCallback((info: PickingInfo): void => {
     if (info.index == null || info.index < 0) return
     const i = info.index
-    const interX = data[i * 6]
-    const interY = data[i * 6 + 1]
-    onDieClick({ interX, interY })
+    onDieClick({interX: data[i * 6], interY: data[i * 6 + 1]})
   }, [data, onDieClick])
 
   const dieBoundaries = useMemo(() => {
-    const { fieldSizeX, fieldSizeY, fieldOffsetX, fieldOffsetY } = fieldParams
+    const {fieldSizeX, fieldSizeY, fieldOffsetX, fieldOffsetY} = fieldParams
     const halfDiag = Math.sqrt(fieldSizeX ** 2 + fieldSizeY ** 2) / 2
     const threshold = WAFER_RADIUS - halfDiag
     const hx = fieldSizeX / 2
     const hy = fieldSizeY / 2
-    const rects: { polygon: number[][] }[] = []
+    const lines: {sourcePosition: number[]; targetPosition: number[]}[] = []
     for (let ix = -GRID_HALF; ix <= GRID_HALF; ix++) {
       for (let iy = -GRID_HALF; iy <= GRID_HALF; iy++) {
         const cx = ix * fieldSizeX + fieldOffsetX
         const cy = iy * fieldSizeY + fieldOffsetY
         if (Math.sqrt(cx * cx + cy * cy) <= threshold) {
-          rects.push({
-            polygon: [
-              [cx - hx, cy - hy],
-              [cx + hx, cy - hy],
-              [cx + hx, cy + hy],
-              [cx - hx, cy + hy],
-            ],
-          })
+          const x0 = cx - hx, x1 = cx + hx, y0 = cy - hy, y1 = cy + hy
+          lines.push(
+            {sourcePosition: [x0, y0], targetPosition: [x1, y0]},
+            {sourcePosition: [x1, y0], targetPosition: [x1, y1]},
+            {sourcePosition: [x1, y1], targetPosition: [x0, y1]},
+            {sourcePosition: [x0, y1], targetPosition: [x0, y0]},
+          )
         }
       }
     }
-    return rects
+    return lines
   }, [fieldParams])
 
   const showArrows = zoom >= LOD_ZOOM_THRESHOLD
 
   const layers = useMemo(() => [
-    new PolygonLayer({
-      id: 'wafer-boundary',
-      data: WAFER_BOUNDARY,
-      getPolygon: (d: { contour: number[][] }) => d.contour,
+    new SolidPolygonLayer({
+      id: 'wafer-fill',
+      data: WAFER_FILLED,
+      getPolygon: (d: {polygon: number[][]}) => d.polygon,
       getFillColor: [20, 20, 40, 200] as [number, number, number, number],
-      getLineColor: [80, 120, 200, 180] as [number, number, number, number],
-      getLineWidth: 1,
-      lineWidthUnits: 'pixels' as const,
-      stroked: true,
       filled: true,
     }),
 
-    new PolygonLayer({
+    new PathLayer({
+      id: 'wafer-outline',
+      data: WAFER_PATH,
+      getPath: (d: {path: number[][]}) => d.path,
+      getColor: [80, 120, 200, 180] as [number, number, number, number],
+      getWidth: 1,
+      widthUnits: 'pixels' as const,
+    }),
+
+    new LineLayer({
       id: 'die-boundaries',
       data: dieBoundaries,
-      getPolygon: (d: { polygon: number[][] }) => d.polygon,
-      getFillColor: [0, 0, 0, 0] as [number, number, number, number],
-      getLineColor: [100, 100, 160, 160] as [number, number, number, number],
-      getLineWidth: 0.5,
-      lineWidthUnits: 'pixels' as const,
-      stroked: true,
-      filled: false,
+      getSourcePosition: (d: {sourcePosition: number[]}) => d.sourcePosition,
+      getTargetPosition: (d: {targetPosition: number[]}) => d.targetPosition,
+      getColor: [100, 100, 160, 160] as [number, number, number, number],
+      getWidth: 0.5,
+      widthUnits: 'pixels' as const,
     }),
 
     new ScatterplotLayer({
@@ -124,8 +117,8 @@ export default function WaferMapView({
       data: {
         length: n,
         attributes: {
-          getPosition: { value: positions, size: 2 },
-          getFillColor: { value: colors, size: 4 },
+          getPosition: {buffer: gpuBuffers.positionBuffer, size: 2},
+          getFillColor: {buffer: gpuBuffers.colorBuffer,   size: 4, type: 'uint8', normalized: true},
         },
       },
       getRadius: 0.08,
@@ -135,46 +128,42 @@ export default function WaferMapView({
       onClick: handleClick,
     }),
 
-    ...(showArrows
-      ? [
-          new SolidPolygonLayer({
-            id: 'arrows',
-            data: arrowPolygons,
-            getPolygon: (d: ArrowPolygon) => d.polygon,
-            getFillColor: (d: ArrowPolygon) => d.color,
-            filled: true,
-            pickable: false,
-          }),
-        ]
-      : []),
-  ], [n, positions, colors, arrowPolygons, dieBoundaries, showArrows, handleClick])
+    new ArrowLayer({
+      id: 'arrows',
+      visible: showArrows,
+      vertexBuffer: gpuBuffers.arrowVertexBuffer,
+      colorBuffer:  gpuBuffers.arrowColorBuffer,
+      vertexCount:  gpuBuffers.arrowVertexCount,
+      pickable: false,
+    }),
+  ], [n, gpuBuffers, dieBoundaries, showArrows, handleClick])
 
   return (
     <DeckGL
-      views={new OrthographicView({ id: 'main' })}
+      device={getDevice()}
+      views={new OrthographicView({id: 'main'})}
       initialViewState={INITIAL_VIEW_STATE}
       controller={true}
       layers={layers}
-      onViewStateChange={({ viewState }) => {
-        const vs = viewState as { zoom: number }
-        viewStateRef.current = { ...INITIAL_VIEW_STATE, ...vs }
+      onViewStateChange={({viewState}) => {
+        const vs = viewState as {zoom: number}
         setZoom(vs.zoom)
       }}
-      style={{ position: 'relative', width: '100%', height: '100%' }}
+      style={{position: 'relative', width: '100%', height: '100%'}}
     >
       <div style={zoomBadgeStyle}>
-        zoom {zoom.toFixed(1)} {showArrows ? '· arrows on' : ''} · {dieBoundaries.length} dies
+        zoom {zoom.toFixed(1)} {showArrows ? '· arrows on' : ''} · {dieBoundaries.length / 4} dies
       </div>
       <ScaleBar zoom={zoom} />
     </DeckGL>
   )
 }
 
-function ScaleBar({ zoom }: { zoom: number }) {
-  const { widthPx, labelMm } = niceScaleBar(zoom)
+function ScaleBar({zoom}: {zoom: number}) {
+  const {widthPx, labelMm} = niceScaleBar(zoom)
   return (
     <div style={scaleBarContainerStyle}>
-      <div style={{ ...scaleBarLineStyle, width: widthPx }} />
+      <div style={{...scaleBarLineStyle, width: widthPx}} />
       <div style={scaleBarLabelStyle}>
         {labelMm >= 1 ? `${labelMm} mm` : `${labelMm * 1000} μm`}
       </div>
@@ -183,35 +172,16 @@ function ScaleBar({ zoom }: { zoom: number }) {
 }
 
 const scaleBarContainerStyle: React.CSSProperties = {
-  position: 'absolute',
-  bottom: 24,
-  left: 16,
-  pointerEvents: 'none',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
+  position: 'absolute', bottom: 24, left: 16, pointerEvents: 'none',
+  display: 'flex', flexDirection: 'column', alignItems: 'center',
 }
-
 const scaleBarLineStyle: React.CSSProperties = {
-  height: 8,
-  borderLeft: '2px solid #aaa',
-  borderRight: '2px solid #aaa',
-  borderBottom: '2px solid #aaa',
-  boxSizing: 'border-box',
+  height: 8, borderLeft: '2px solid #aaa', borderRight: '2px solid #aaa',
+  borderBottom: '2px solid #aaa', boxSizing: 'border-box',
 }
-
 const scaleBarLabelStyle: React.CSSProperties = {
-  fontSize: 10,
-  color: '#aaa',
-  marginTop: 2,
-  whiteSpace: 'nowrap',
+  fontSize: 10, color: '#aaa', marginTop: 2, whiteSpace: 'nowrap',
 }
-
 const zoomBadgeStyle: React.CSSProperties = {
-  position: 'absolute',
-  bottom: 8,
-  left: 8,
-  fontSize: 10,
-  color: '#555',
-  pointerEvents: 'none',
+  position: 'absolute', bottom: 8, left: 8, fontSize: 10, color: '#555', pointerEvents: 'none',
 }
