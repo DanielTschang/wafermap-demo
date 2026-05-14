@@ -1,5 +1,5 @@
 import './App.css'
-import {useState} from 'react'
+import {useState, useCallback} from 'react'
 import {useWaferData}   from './hooks/useWaferData.ts'
 import {useGpuCompute}  from './hooks/useGpuCompute.ts'
 import type {FieldParams} from './hooks/useWaferData.ts'
@@ -21,23 +21,28 @@ export default function App() {
   const [colorMax, setColorMax]       = useState(50)
   const [selectedDie, setSelectedDie] = useState<SelectedDie | null>(null)
   const [fieldParams, setFieldParams] = useState<FieldParams>(DEFAULT_FIELD_PARAMS)
+  const [deviceReady, setDeviceReady] = useState(false)
 
   const {data, loading, error} = useWaferData(500000, fieldParams)
-  const gpuBuffers = useGpuCompute(data, colorMin, colorMax)
 
-  if (loading)                    return <div className="status">Loading wafer data…</div>
-  if (error)                      return <div className="status error">Error: {error}</div>
-  if (!data || !gpuBuffers)       return <div className="status">Initialising GPU…</div>
+  // Gate compute on device being ready — DeckGL creates the device, then notifies us
+  const gpuBuffers = useGpuCompute(deviceReady ? data : null, colorMin, colorMax)
+
+  const handleDeviceReady = useCallback(() => setDeviceReady(true), [])
+
+  if (loading) return <div className="status">Loading wafer data…</div>
+  if (error)   return <div className="status error">Error: {error}</div>
 
   return (
     <div className="layout">
       <div className="map-area">
         <WaferMapView
-          n={data.length / 6}
+          n={gpuBuffers && data ? data.length / 6 : 0}
           gpuBuffers={gpuBuffers}
           data={data}
           fieldParams={fieldParams}
           onDieClick={setSelectedDie}
+          onDeviceReady={handleDeviceReady}
         />
       </div>
       <div className="sidebar">
@@ -48,7 +53,7 @@ export default function App() {
           onMaxChange={setColorMax}
         />
         <FieldParamsPanel params={fieldParams} onApply={setFieldParams} />
-        <DieInfoPanel selectedDie={selectedDie} data={data} />
+        <DieInfoPanel selectedDie={selectedDie} data={data!} />
       </div>
     </div>
   )

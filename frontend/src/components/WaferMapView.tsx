@@ -1,4 +1,4 @@
-import {useState, useMemo, useCallback} from 'react'
+import {useState, useRef, useMemo, useCallback} from 'react'
 import DeckGL from '@deck.gl/react'
 import {OrthographicView} from '@deck.gl/core'
 import {ScatterplotLayer, SolidPolygonLayer, PathLayer, LineLayer} from '@deck.gl/layers'
@@ -7,7 +7,7 @@ import type {SelectedDie} from './DieInfoPanel.tsx'
 import type {FieldParams} from '../hooks/useWaferData.ts'
 import type {GpuBuffers} from '../hooks/useGpuCompute.ts'
 import {ArrowLayer} from '../layers/ArrowLayer.ts'
-import {getDevice} from '../gpu/webgpuDevice.ts'
+import {setDevice} from '../gpu/webgpuDevice.ts'
 
 const WAFER_RADIUS = 150
 const GRID_HALF    = 10
@@ -42,17 +42,21 @@ const INITIAL_VIEW_STATE = {
 
 interface WaferMapViewProps {
   n: number
-  gpuBuffers: GpuBuffers
-  data: Float32Array
+  gpuBuffers: GpuBuffers | null
+  data: Float32Array | null
   fieldParams: FieldParams
   onDieClick: (die: SelectedDie) => void
+  onDeviceReady: () => void
 }
 
-export default function WaferMapView({n, gpuBuffers, data, fieldParams, onDieClick}: WaferMapViewProps) {
+export default function WaferMapView({n, gpuBuffers, data, fieldParams, onDieClick, onDeviceReady}: WaferMapViewProps) {
   const [zoom, setZoom] = useState(INITIAL_VIEW_STATE.zoom)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const deckRef = useRef<any>(null)
+  const deviceCapturedRef = useRef(false)
 
   const handleClick = useCallback((info: PickingInfo): void => {
-    if (info.index == null || info.index < 0) return
+    if (info.index == null || info.index < 0 || !data) return
     const i = info.index
     onDieClick({interX: data[i * 6], interY: data[i * 6 + 1]})
   }, [data, onDieClick])
@@ -84,67 +88,87 @@ export default function WaferMapView({n, gpuBuffers, data, fieldParams, onDieCli
 
   const showArrows = zoom >= LOD_ZOOM_THRESHOLD
 
-  const layers = useMemo(() => [
-    new SolidPolygonLayer({
-      id: 'wafer-fill',
-      data: WAFER_FILLED,
-      getPolygon: (d: {polygon: number[][]}) => d.polygon as any,
-      getFillColor: [20, 20, 40, 200] as [number, number, number, number],
-      filled: true,
-    }),
+  // Capture the device DeckGL created on first render, store in singleton for compute shaders
+  const handleAfterRender = useCallback(() => {
+    if (deviceCapturedRef.current) return
+    const device = deckRef.current?.deck?.device
+    if (device) {
+      setDevice(device)
+      deviceCapturedRef.current = true
+      onDeviceReady()
+    }
+  }, [onDeviceReady])
 
-    new PathLayer({
-      id: 'wafer-outline',
-      data: WAFER_PATH,
-      getPath: (d: {path: number[][]}) => d.path as any,
-      getColor: [80, 120, 200, 180] as [number, number, number, number],
-      getWidth: 1,
-      widthUnits: 'pixels' as const,
-    }),
+  const layers = useMemo(() => {
+    const base = [
+      new SolidPolygonLayer({
+        id: 'wafer-fill',
+        data: WAFER_FILLED,
+        getPolygon: (d: {polygon: number[][]}) => d.polygon as any,
+        getFillColor: [20, 20, 40, 200] as [number, number, number, number],
+        filled: true,
+      }),
 
-    new LineLayer({
-      id: 'die-boundaries',
-      data: dieBoundaries,
-      getSourcePosition: (d: {sourcePosition: number[]}) => d.sourcePosition as [number, number],
-      getTargetPosition: (d: {targetPosition: number[]}) => d.targetPosition as [number, number],
-      getColor: [100, 100, 160, 160] as [number, number, number, number],
-      getWidth: 0.5,
-      widthUnits: 'pixels' as const,
-    }),
+      new PathLayer({
+        id: 'wafer-outline',
+        data: WAFER_PATH,
+        getPath: (d: {path: number[][]}) => d.path as any,
+        getColor: [80, 120, 200, 180] as [number, number, number, number],
+        getWidth: 1,
+        widthUnits: 'pixels' as const,
+      }),
 
-    new ScatterplotLayer({
-      id: 'points',
-      data: {
-        length: n,
-        attributes: {
-          getPosition: {buffer: gpuBuffers.positionBuffer, size: 2},
-          getFillColor: {buffer: gpuBuffers.colorBuffer,   size: 4, type: 'uint8', normalized: true},
+      new LineLayer({
+        id: 'die-boundaries',
+        data: dieBoundaries,
+        getSourcePosition: (d: {sourcePosition: number[]}) => d.sourcePosition as [number, number],
+        getTargetPosition: (d: {targetPosition: number[]}) => d.targetPosition as [number, number],
+        getColor: [100, 100, 160, 160] as [number, number, number, number],
+        getWidth: 0.5,
+        widthUnits: 'pixels' as const,
+      }),
+    ]
+
+    if (!gpuBuffers) return base
+
+    return [
+      ...base,
+      new ScatterplotLayer({
+        id: 'points',
+        data: {
+          length: n,
+          attributes: {
+            getPosition: {buffer: gpuBuffers.positionBuffer, size: 2},
+            getFillColor: {buffer: gpuBuffers.colorBuffer,   size: 4, type: 'uint8', normalized: true},
+          },
         },
-      },
-      getRadius: 0.08,
-      radiusMinPixels: 1,
-      radiusMaxPixels: 6,
-      pickable: true,
-      onClick: handleClick,
-    }),
+        getRadius: 0.08,
+        radiusMinPixels: 1,
+        radiusMaxPixels: 6,
+        pickable: true,
+        onClick: handleClick,
+      }),
 
-    new ArrowLayer({
-      id: 'arrows',
-      visible: showArrows,
-      vertexBuffer: gpuBuffers.arrowVertexBuffer,
-      colorBuffer:  gpuBuffers.arrowColorBuffer,
-      vertexCount:  gpuBuffers.arrowVertexCount,
-      pickable: false,
-    }),
-  ], [n, gpuBuffers, dieBoundaries, showArrows, handleClick])
+      new ArrowLayer({
+        id: 'arrows',
+        visible: showArrows,
+        vertexBuffer: gpuBuffers.arrowVertexBuffer,
+        colorBuffer:  gpuBuffers.arrowColorBuffer,
+        vertexCount:  gpuBuffers.arrowVertexCount,
+        pickable: false,
+      }),
+    ]
+  }, [n, gpuBuffers, dieBoundaries, showArrows, handleClick])
 
   return (
     <DeckGL
-      device={getDevice()}
+      ref={deckRef}
+      device={{type: 'webgpu'} as any}
       views={new OrthographicView({id: 'main'})}
       initialViewState={INITIAL_VIEW_STATE}
       controller={true}
       layers={layers}
+      onAfterRender={handleAfterRender}
       onViewStateChange={({viewState}) => {
         const vs = viewState as {zoom: number}
         setZoom(vs.zoom)

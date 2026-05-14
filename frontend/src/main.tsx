@@ -2,22 +2,14 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import {luma} from '@luma.gl/core';
 import {webgpuAdapter} from '@luma.gl/webgpu';
-import {setDevice} from './gpu/webgpuDevice';
 import App from './App';
 import './index.css';
 
-async function bootstrap(): Promise<void> {
-  luma.registerAdapters([webgpuAdapter]);
-  const device = await luma.createDevice({type: 'webgpu'});
-  setDevice(device);
+// Register WebGPU adapter so DeckGL can create a WebGPU device with its canvas
+luma.registerAdapters([webgpuAdapter]);
 
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
-  );
-}
-
-bootstrap().catch(err => {
-  document.getElementById('root')!.textContent = `WebGPU init failed: ${err.message}`;
-});
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);
