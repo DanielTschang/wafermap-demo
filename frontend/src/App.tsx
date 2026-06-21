@@ -8,6 +8,7 @@ import ColorBar         from './components/ColorBar.tsx'
 import DieInfoPanel     from './components/DieInfoPanel.tsx'
 import type {SelectedDie} from './components/DieInfoPanel.tsx'
 import FieldParamsPanel from './components/FieldParamsPanel.tsx'
+import QuadrantView      from './components/QuadrantView.tsx'
 
 const DEFAULT_FIELD_PARAMS: FieldParams = {
   fieldSizeX: 25.8,
@@ -35,15 +36,20 @@ export default function App() {
 
   return (
     <div className="layout">
-      <div className="map-area">
-        <WaferMapView
-          n={gpuBuffers && data ? data.length / 6 : 0}
-          gpuBuffers={gpuBuffers}
-          data={data}
-          fieldParams={fieldParams}
-          onDieClick={setSelectedDie}
-          onDeviceReady={handleDeviceReady}
-        />
+      <div className="main-area">
+        <div className="map-area">
+          <WaferMapView
+            n={gpuBuffers && data ? data.length / 6 : 0}
+            gpuBuffers={gpuBuffers}
+            data={data}
+            fieldParams={fieldParams}
+            onDieClick={setSelectedDie}
+            onDeviceReady={handleDeviceReady}
+          />
+        </div>
+        <div className="quadrant-area">
+          <QuadrantView data={data} />
+        </div>
       </div>
       <div className="sidebar">
         <ColorBar
