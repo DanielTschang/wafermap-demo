@@ -24,17 +24,34 @@ interface ViewState {
   target: [number, number, number]
 }
 
+const PANEL_STYLE: CSSProperties = {
+  position: 'absolute', top: 8, right: 8,
+  background: 'rgba(10,10,24,0.85)', borderRadius: 6, padding: 8,
+  display: 'flex', flexDirection: 'column', gap: 6,
+  pointerEvents: 'auto', zIndex: 10,
+}
+const ROW_STYLE: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 6,
+}
+const LABEL_TEXT_STYLE: CSSProperties = {
+  fontSize: 11, color: '#888', width: 40,
+}
+const INPUT_STYLE: CSSProperties = {
+  width: 56, fontSize: 11, background: '#1a1a2e', color: '#e0e0e0',
+  border: '1px solid #333', borderRadius: 3, padding: '2px 4px',
+}
+const UNIT_STYLE: CSSProperties = {
+  fontSize: 10, color: '#555',
+}
+
 export default function QuadrantView({ data }: QuadrantViewProps) {
   const [vs, setVs] = useState<ViewState>({
     zoom: INITIAL_VIEW_STATE.zoom,
     target: INITIAL_VIEW_STATE.target,
   })
   const [axis, setAxis] = useState<number>(20)
-  void setAxis // removed in Task 5 when control panel wires the input
   const [specX, setSpecX] = useState<number>(0)
   const [specY, setSpecY] = useState<number>(0)
-  void setSpecX // removed in Task 5
-  void setSpecY // removed in Task 5
 
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 })
@@ -177,6 +194,33 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
       {/* Chart title */}
       <div style={labelStyle({ top: 8, left: '50%', transform: 'translateX(-50%)', fontSize: 11 })}>
         Overlay Quadrant
+      </div>
+      {/* Floating control panel */}
+      <div style={PANEL_STYLE}>
+        <div style={ROW_STYLE}>
+          <span style={LABEL_TEXT_STYLE}>Axis</span>
+          <input
+            type="number" min="0" style={INPUT_STYLE} value={axis}
+            onChange={e => setAxis(Number(e.target.value))}
+          />
+          <span style={UNIT_STYLE}>nm</span>
+        </div>
+        <div style={ROW_STYLE}>
+          <span style={LABEL_TEXT_STYLE}>Spec X</span>
+          <input
+            type="number" min="0" style={INPUT_STYLE} value={specX}
+            onChange={e => setSpecX(Number(e.target.value))}
+          />
+          <span style={UNIT_STYLE}>±nm</span>
+        </div>
+        <div style={ROW_STYLE}>
+          <span style={LABEL_TEXT_STYLE}>Spec Y</span>
+          <input
+            type="number" min="0" style={INPUT_STYLE} value={specY}
+            onChange={e => setSpecY(Number(e.target.value))}
+          />
+          <span style={UNIT_STYLE}>±nm</span>
+        </div>
       </div>
     </div>
   )
