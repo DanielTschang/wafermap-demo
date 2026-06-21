@@ -30,7 +30,7 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
     target: INITIAL_VIEW_STATE.target,
   })
   const [axis, setAxis] = useState<number>(20)
-  void setAxis // reserved for control panel input (Task 5)
+  void setAxis // removed in Task 5 when control panel wires the input
 
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 })
