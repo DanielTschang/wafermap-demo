@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useLayoutEffect, useRef, useMemo, useCallback } from 'react'
+import type { CSSProperties } from 'react'
 import DeckGL from '@deck.gl/react'
 import { OrthographicView } from '@deck.gl/core'
 import { ScatterplotLayer } from '@deck.gl/layers'
@@ -16,6 +17,8 @@ const INITIAL_VIEW_STATE = {
 
 const POINT_COLOR: [number, number, number, number] = [100, 160, 255, 120]
 
+const QUADRANT_VIEW = new OrthographicView({ id: 'quadrant' })
+
 interface ViewState {
   zoom: number
   target: [number, number, number]
@@ -32,12 +35,14 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 })
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = containerRef.current
     if (!el) return
+    const { width, height } = el.getBoundingClientRect()
+    setContainerSize({ w: width, h: height })
     const obs = new ResizeObserver(entries => {
-      const { width, height } = entries[0].contentRect
-      setContainerSize({ w: width, h: height })
+      const { width: w, height: h } = entries[0].contentRect
+      setContainerSize({ w, h })
     })
     obs.observe(el)
     return () => obs.disconnect()
@@ -50,40 +55,50 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
   const originX = containerSize.w / 2 - vs.target[0] * scale
   const originY = containerSize.h / 2 + vs.target[1] * scale
 
-  const layer =
-    data && n > 0
-      ? new ScatterplotLayer({
-          id: 'quadrant-points',
-          data: {
-            length: n,
-            attributes: {
-              getPosition: {
-                value: data,
-                size: 2,
-                stride: 24, // 6 floats × 4 bytes per record
-                offset: 16, // skip interX, interY, intraX, intraY (4 × 4 bytes)
+  const layer = useMemo(
+    () =>
+      data && n > 0
+        ? new ScatterplotLayer({
+            id: 'quadrant-points',
+            data: {
+              length: n,
+              attributes: {
+                getPosition: {
+                  value: data,
+                  size: 2,
+                  stride: 24, // 6 floats × 4 bytes per record
+                  offset: 16, // skip interX, interY, intraX, intraY (4 × 4 bytes)
+                },
               },
             },
-          },
-          getRadius: 0.3,
-          radiusMinPixels: 1,
-          radiusMaxPixels: 4,
-          getFillColor: POINT_COLOR,
-          pickable: false,
-        })
-      : null
+            getRadius: 0.3,
+            radiusMinPixels: 1,
+            radiusMaxPixels: 4,
+            getFillColor: POINT_COLOR,
+            pickable: false,
+          })
+        : null,
+    [data, n],
+  )
+
+  const handleViewStateChange = useCallback(
+    ({ viewState }: { viewState: Record<string, unknown> }) => {
+      setVs({
+        zoom: (viewState.zoom as number) ?? INITIAL_VIEW_STATE.zoom,
+        target: (viewState.target as [number, number, number]) ?? INITIAL_VIEW_STATE.target,
+      })
+    },
+    [],
+  )
 
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
       <DeckGL
-        views={new OrthographicView({ id: 'quadrant' })}
+        views={QUADRANT_VIEW}
         initialViewState={INITIAL_VIEW_STATE}
         controller={true}
         layers={layer ? [layer] : []}
-        onViewStateChange={({ viewState }) => {
-          const v = viewState as ViewState
-          setVs({ zoom: v.zoom, target: v.target })
-        }}
+        onViewStateChange={handleViewStateChange}
         style={{ position: 'absolute', width: '100%', height: '100%' }}
       />
       {/* Horizontal axis line at Y=0 */}
@@ -114,7 +129,7 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
       <div style={labelStyle({ bottom: 8, left: '50%', transform: 'translateX(-50%)' })}>
         ovlX (nm)
       </div>
-      <div style={labelStyle({ top: '50%', left: 8, transform: 'translateY(-50%)' })}>
+      <div style={labelStyle({ top: '50%', left: 8, transform: 'translateY(-50%) rotate(-90deg)' })}>
         ovlY (nm)
       </div>
       {/* Chart title */}
@@ -125,7 +140,7 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
   )
 }
 
-function labelStyle(extra: React.CSSProperties): React.CSSProperties {
+function labelStyle(extra: CSSProperties): CSSProperties {
   return {
     position: 'absolute',
     fontSize: 10,
