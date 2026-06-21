@@ -30,6 +30,7 @@ body {
 
 .map-area {
   flex: 1;
+  min-width: 0;
   position: relative;
   background: #0a0a18;
   border-right: 1px solid #1e1e3a;
@@ -37,6 +38,7 @@ body {
 
 .quadrant-area {
   flex: 1;
+  min-width: 0;
   position: relative;
   background: #0a0a18;
 }
