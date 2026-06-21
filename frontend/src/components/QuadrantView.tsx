@@ -104,8 +104,12 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
   )
 
   // Integer indices 1…axis for gridline rendering
-  const gridIndices = axis > 0 ? Array.from({ length: Math.floor(axis) }, (_, i) => i + 1) : []
   const scale = Math.pow(2, vs.zoom)
+  const gridIndices = axis > 0
+    ? Array.from({ length: Math.floor(axis) }, (_, i) => i + 1).filter(
+        i => i * scale < containerSize.w + containerSize.h,
+      )
+    : []
 
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -123,11 +127,11 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
         <Fragment key={i}>
           {/* Vertical gridline at X = +i */}
           <div style={{ position: 'absolute', left: cx + i * scale, top: 0, bottom: 0, width: 0, borderLeft: '1px solid rgba(255,255,255,0.15)', pointerEvents: 'none' }}>
-            <span style={gridLabelStyle({ top: cy + 4 })}>{i}</span>
+            <span style={gridLabelStyle({ top: cy - 12 })}>{i}</span>
           </div>
           {/* Vertical gridline at X = -i */}
           <div style={{ position: 'absolute', left: cx - i * scale, top: 0, bottom: 0, width: 0, borderLeft: '1px solid rgba(255,255,255,0.15)', pointerEvents: 'none' }}>
-            <span style={gridLabelStyle({ top: cy + 4 })}>-{i}</span>
+            <span style={gridLabelStyle({ top: cy - 12 })}>-{i}</span>
           </div>
           {/* Horizontal gridline at Y = +i */}
           <div style={{ position: 'absolute', top: cy - i * scale, left: 0, right: 0, height: 0, borderTop: '1px solid rgba(255,255,255,0.15)', pointerEvents: 'none' }}>
