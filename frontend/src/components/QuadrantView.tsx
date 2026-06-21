@@ -29,6 +29,7 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
     zoom: INITIAL_VIEW_STATE.zoom,
     target: INITIAL_VIEW_STATE.target,
   })
+  const [axis] = useState<number>(20)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 })
@@ -50,16 +51,31 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
   const cx = containerSize.w / 2
   const cy = containerSize.h / 2
 
+  // CPU-side clip: keep only records where |ovlX| ≤ axis && |ovlY| ≤ axis.
+  // axis ≤ 0 means no clipping.
+  const clippedData = useMemo(() => {
+    if (!data || axis <= 0) return data
+    const n = data.length / 6
+    const out = new Float32Array(data.length)
+    let count = 0
+    for (let i = 0; i < n; i++) {
+      if (Math.abs(data[i * 6 + 4]) <= axis && Math.abs(data[i * 6 + 5]) <= axis) {
+        out.set(data.subarray(i * 6, i * 6 + 6), count++ * 6)
+      }
+    }
+    return out.subarray(0, count * 6)
+  }, [data, axis])
+
   const layer = useMemo(
     () =>
-      data && data.length > 0
+      clippedData && clippedData.length > 0
         ? new ScatterplotLayer({
             id: 'quadrant-points',
             data: {
-              length: data.length / 6,
+              length: clippedData.length / 6,
               attributes: {
                 getPosition: {
-                  value: data,
+                  value: clippedData,
                   size: 2,
                   stride: 24, // 6 floats × 4 bytes per record
                   offset: 16, // skip interX, interY, intraX, intraY (4 × 4 bytes)
@@ -73,7 +89,7 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
             pickable: false,
           })
         : null,
-    [data],
+    [clippedData],
   )
 
   const handleViewStateChange = useCallback(
