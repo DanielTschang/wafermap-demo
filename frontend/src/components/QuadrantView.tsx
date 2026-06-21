@@ -149,7 +149,7 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
           </div>
         </Fragment>
       ))}
-      {/* Spec rectangle */}
+      {/* Spec rectangle — assumes specX/Y are reasonable (≤100K nm); extreme values at maxZoom may overflow CSS pixels */}
       {showSpec && (
         <div
           style={{
