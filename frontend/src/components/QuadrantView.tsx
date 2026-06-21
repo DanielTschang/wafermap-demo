@@ -46,12 +46,9 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
     return () => obs.disconnect()
   }, [])
 
-  // World origin → screen pixels for axis overlay.
-  // OrthographicView: screenX = w/2 + (worldX − targetX) × 2^zoom
-  //                   screenY = h/2 − (worldY − targetY) × 2^zoom
-  const scale = Math.pow(2, vs.zoom)
-  const originX = containerSize.w / 2 - vs.target[0] * scale
-  const originY = containerSize.h / 2 + vs.target[1] * scale
+  // Target is locked to [0,0,0], so world origin always projects to screen center
+  const cx = containerSize.w / 2
+  const cy = containerSize.h / 2
 
   const layer = useMemo(
     () =>
@@ -81,10 +78,10 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
 
   const handleViewStateChange = useCallback(
     ({ viewState }: { viewState: Record<string, unknown> }) => {
-      setVs({
+      setVs(prev => ({
+        ...prev,
         zoom: (viewState.zoom as number) ?? INITIAL_VIEW_STATE.zoom,
-        target: (viewState.target as [number, number, number]) ?? INITIAL_VIEW_STATE.target,
-      })
+      }))
     },
     [],
   )
@@ -94,36 +91,15 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
       {/* Deliberately no deviceProps — WaferMapView owns the single WebGPU device. */}
       <DeckGL
         views={QUADRANT_VIEW}
-        initialViewState={INITIAL_VIEW_STATE}
+        viewState={{ ...INITIAL_VIEW_STATE, zoom: vs.zoom }}
         controller={true}
         layers={layer ? [layer] : []}
         onViewStateChange={handleViewStateChange}
         style={{ position: 'absolute', width: '100%', height: '100%' }}
       />
-      {/* Horizontal axis line at Y=0 */}
-      <div
-        style={{
-          position: 'absolute',
-          top: originY,
-          left: 0,
-          right: 0,
-          height: 0,
-          borderTop: '1px solid rgba(255,255,255,0.3)',
-          pointerEvents: 'none',
-        }}
-      />
-      {/* Vertical axis line at X=0 */}
-      <div
-        style={{
-          position: 'absolute',
-          left: originX,
-          top: 0,
-          bottom: 0,
-          width: 0,
-          borderLeft: '1px solid rgba(255,255,255,0.3)',
-          pointerEvents: 'none',
-        }}
-      />
+      {/* Main axes — always at screen center because target is locked to [0,0,0] */}
+      <div style={{ position: 'absolute', top: cy, left: 0, right: 0, height: 0, borderTop: '1px solid rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', left: cx, top: 0, bottom: 0, width: 0, borderLeft: '1px solid rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
       {/* Axis labels */}
       <div style={labelStyle({ bottom: 8, left: '50%', transform: 'translateX(-50%)' })}>
         ovlX (nm)
