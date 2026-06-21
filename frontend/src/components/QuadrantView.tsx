@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useLayoutEffect, useRef, useMemo, useCallback, Fragment } from 'react'
 import type { CSSProperties } from 'react'
 import DeckGL from '@deck.gl/react'
 import { OrthographicView } from '@deck.gl/core'
@@ -103,6 +103,10 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
     [],
   )
 
+  // Integer indices 1…axis for gridline rendering
+  const gridIndices = axis > 0 ? Array.from({ length: Math.floor(axis) }, (_, i) => i + 1) : []
+  const scale = Math.pow(2, vs.zoom)
+
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
       {/* Deliberately no deviceProps — WaferMapView owns the single WebGPU device. */}
@@ -114,6 +118,27 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
         onViewStateChange={handleViewStateChange}
         style={{ position: 'absolute', width: '100%', height: '100%' }}
       />
+      {/* Gridlines at ±1, ±2, …, ±axis */}
+      {gridIndices.map(i => (
+        <Fragment key={i}>
+          {/* Vertical gridline at X = +i */}
+          <div style={{ position: 'absolute', left: cx + i * scale, top: 0, bottom: 0, width: 0, borderLeft: '1px solid rgba(255,255,255,0.15)', pointerEvents: 'none' }}>
+            <span style={gridLabelStyle({ top: cy + 4 })}>{i}</span>
+          </div>
+          {/* Vertical gridline at X = -i */}
+          <div style={{ position: 'absolute', left: cx - i * scale, top: 0, bottom: 0, width: 0, borderLeft: '1px solid rgba(255,255,255,0.15)', pointerEvents: 'none' }}>
+            <span style={gridLabelStyle({ top: cy + 4 })}>-{i}</span>
+          </div>
+          {/* Horizontal gridline at Y = +i */}
+          <div style={{ position: 'absolute', top: cy - i * scale, left: 0, right: 0, height: 0, borderTop: '1px solid rgba(255,255,255,0.15)', pointerEvents: 'none' }}>
+            <span style={gridLabelStyle({ left: cx + 4 })}>{i}</span>
+          </div>
+          {/* Horizontal gridline at Y = -i */}
+          <div style={{ position: 'absolute', top: cy + i * scale, left: 0, right: 0, height: 0, borderTop: '1px solid rgba(255,255,255,0.15)', pointerEvents: 'none' }}>
+            <span style={gridLabelStyle({ left: cx + 4 })}>-{i}</span>
+          </div>
+        </Fragment>
+      ))}
       {/* Main axes — always at screen center because target is locked to [0,0,0] */}
       <div style={{ position: 'absolute', top: cy, left: 0, right: 0, height: 0, borderTop: '1px solid rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', left: cx, top: 0, bottom: 0, width: 0, borderLeft: '1px solid rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
@@ -138,6 +163,18 @@ function labelStyle(extra: CSSProperties): CSSProperties {
     fontSize: 10,
     color: '#888',
     pointerEvents: 'none',
+    whiteSpace: 'nowrap',
+    ...extra,
+  }
+}
+
+function gridLabelStyle(extra: CSSProperties): CSSProperties {
+  return {
+    position: 'absolute',
+    fontSize: 9,
+    color: '#555',
+    pointerEvents: 'none',
+    lineHeight: '1',
     whiteSpace: 'nowrap',
     ...extra,
   }
