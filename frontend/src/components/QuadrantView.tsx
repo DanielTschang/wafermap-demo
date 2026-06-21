@@ -25,8 +25,6 @@ interface ViewState {
 }
 
 export default function QuadrantView({ data }: QuadrantViewProps) {
-  const n = data ? data.length / 6 : 0
-
   const [vs, setVs] = useState<ViewState>({
     zoom: INITIAL_VIEW_STATE.zoom,
     target: INITIAL_VIEW_STATE.target,
@@ -57,11 +55,11 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
 
   const layer = useMemo(
     () =>
-      data && n > 0
+      data && data.length > 0
         ? new ScatterplotLayer({
             id: 'quadrant-points',
             data: {
-              length: n,
+              length: data.length / 6,
               attributes: {
                 getPosition: {
                   value: data,
@@ -78,7 +76,7 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
             pickable: false,
           })
         : null,
-    [data, n],
+    [data],
   )
 
   const handleViewStateChange = useCallback(
@@ -93,6 +91,7 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
 
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
+      {/* Deliberately no deviceProps — WaferMapView owns the single WebGPU device. */}
       <DeckGL
         views={QUADRANT_VIEW}
         initialViewState={INITIAL_VIEW_STATE}
