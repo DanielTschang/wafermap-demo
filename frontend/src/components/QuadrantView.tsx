@@ -31,6 +31,10 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
   })
   const [axis, setAxis] = useState<number>(20)
   void setAxis // removed in Task 5 when control panel wires the input
+  const [specX, setSpecX] = useState<number>(0)
+  const [specY, setSpecY] = useState<number>(0)
+  void setSpecX // removed in Task 5
+  void setSpecY // removed in Task 5
 
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 })
@@ -111,6 +115,8 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
       )
     : []
 
+  const showSpec = specX > 0 && specY > 0
+
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
       {/* Deliberately no deviceProps — WaferMapView owns the single WebGPU device. */}
@@ -143,6 +149,21 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
           </div>
         </Fragment>
       ))}
+      {/* Spec rectangle */}
+      {showSpec && (
+        <div
+          style={{
+            position: 'absolute',
+            left: cx - specX * scale,
+            top: cy - specY * scale,
+            width: 2 * specX * scale,
+            height: 2 * specY * scale,
+            border: '1.5px solid rgba(220,50,50,0.85)',
+            background: 'rgba(220,50,50,0.05)',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
       {/* Main axes — always at screen center because target is locked to [0,0,0] */}
       <div style={{ position: 'absolute', top: cy, left: 0, right: 0, height: 0, borderTop: '1px solid rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', left: cx, top: 0, bottom: 0, width: 0, borderLeft: '1px solid rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
