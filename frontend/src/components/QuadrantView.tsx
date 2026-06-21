@@ -29,7 +29,8 @@ export default function QuadrantView({ data }: QuadrantViewProps) {
     zoom: INITIAL_VIEW_STATE.zoom,
     target: INITIAL_VIEW_STATE.target,
   })
-  const [axis] = useState<number>(20)
+  const [axis, setAxis] = useState<number>(20)
+  void setAxis // reserved for control panel input (Task 5)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 })
